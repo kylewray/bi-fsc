@@ -1,0 +1,69 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg name="map_name" default="$(find cbnlp)/maps/maze_3.yaml" />
+
+  <include file="$(find cbnlp)/launch/rviz_nav.launch" />
+
+  <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_name)" />
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find cbnlp)/rviz/default.rviz" />
+
+  <node pkg="cbnlp" type="cbnlp_pomdp_node" name="cbnlp_pomdp_node" output="screen">
+    <param name="update_rate" value="10" />
+
+    <param name="grid_width" value="8" />
+    <param name="grid_height" value="8" />
+
+    <param name="base_probability_of_action_success" value="0.9" />
+    <param name="penalty_for_freespace" value="0.05" />
+    <!-- <param name="number_of_beliefs_to_add" value="1000" /> -->
+    <param name="number_of_belief_expansions" value="2" />
+
+    <param name="number_of_updates_before_providing_actions" value="64" />
+
+    <param name="sub_occupancy_grid" value="/map" />
+
+    <param name="sub_map_pose_estimate" value="/initialpose" />
+    <param name="sub_map_nav_goal" value="/move_base_simple/goal" />
+
+    <param name="get_action" value="~get_action" />
+    <param name="get_belief" value="~get_belief" />
+    <param name="update_belief" value="~update_belief" />
+
+    <param name="visualize_belief" value="True" />
+    <param name="visualization_marker" value="~visualization_marker" />
+    <param name="visualization_marker_array" value="~visualization_marker_array" />
+  </node>
+
+  <node pkg="cbnlp" type="cbnlp_kobuki_node" name="cbnlp_kobuki_node" output="screen">
+    <!-- Note "remap" for commands 'pushes' data from something to something else. Conversely,
+         information 'flows' from something to something else. Hence the remapping below. -->
+    <remap from="/base_pose_ground_truth" to="/odom" /> <!-- nav_msgs -->
+    <remap from="/cmd_vel" to="/mobile_base/commands/velocity" /> <!-- kobuki_msgs -->
+    <remap from="/cmd_reset_odom" to="/mobile_base/commands/reset_odometry" /> <!-- kobuki_msgs -->
+    <remap from="/mobile_base/events/bumper" to="/evt_bump" /> <!-- kobuki_msgs -->
+
+    <param name="cbnlp_pomdp_namespace" value="/cbnlp_pomdp_node" />
+
+    <param name="at_position_goal_threshold" value="0.05" />
+    <param name="at_theta_goal_threshold" value="0.05" />
+    <param name="recovery_distance_threshold" value="0.125" />
+
+    <param name="pid_integrator_bounds" value="0.05" />
+
+    <param name="pid_theta_Kp" value="2.0" />
+    <param name="pid_theta_Ki" value="0.5" />
+    <param name="pid_theta_Kd" value="0.5" />
+
+    <param name="desired_velocity" value="0.2" />
+
+    <param name="sub_kobuki_odom" value="/odom" />
+    <param name="sub_kobuki_bump" value="/evt_bump" />
+    <param name="pub_kobuki_vel" value="/cmd_vel" />
+    <param name="pub_kobuki_reset_odom" value="/cmd_reset_odom" />
+
+    <param name="sub_map_pose_estimate" value="/initialpose" />
+    <param name="sub_map_nav_goal" value="/move_base_simple/goal" />
+  </node>
+</launch>
+
