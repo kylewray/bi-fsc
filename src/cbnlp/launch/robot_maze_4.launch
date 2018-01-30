@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <arg name="map_name" default="$(find cbnlp)/maps/maze_3.yaml" />
+  <arg name="map_name" default="$(find cbnlp)/maps/maze_4.yaml" />
 
   <include file="$(find kobuki_node)/launch/robot_with_tf.launch" />
 
@@ -12,12 +12,12 @@
     <param name="update_rate" value="10" />
 
     <param name="grid_width" value="7" />
-    <param name="grid_height" value="4" />
+    <param name="grid_height" value="5" />
 
     <param name="base_probability_of_action_success" value="0.9" />
     <param name="penalty_for_freespace" value="0.05" />
-    <!-- <param name="number_of_beliefs_to_add" value="1000" /> -->
-    <param name="number_of_belief_expansions" value="3" />
+    <param name="number_of_beliefs_to_add" value="100" />
+    <param name="number_of_belief_expansions" value="2" />
 
     <param name="number_of_updates_before_providing_actions" value="64" />
 
