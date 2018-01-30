@@ -22,8 +22,8 @@
  */
 
 
-#ifndef NOVA_POMDP_EXPAND_CPU_H
-#define NOVA_POMDP_EXPAND_CPU_H
+#ifndef NOVA_POMDP_EXPAND_H
+#define NOVA_POMDP_EXPAND_H
 
 
 #include <nova/pomdp/pomdp.h>
@@ -32,36 +32,56 @@
 namespace nova {
 
 /**
- *  Expand the set of beliefs following random trajectories (e.g., Perseus' expansion). This randomly
- *  selects points from B, then randomly expands these points a random number of times. This process
- *  is repeated a number of times equal to the value provided. The new numBeliefsToAdd belief points
- *  are added to B and rz is updated accordingly.
+ *  Expand the set of beliefs following random trajectories (e.g., Perseus' expansion).
+ *
+ *  This randomly selects points from B, then randomly expands these points a random number of times.
+ *  The process is repeated a number of times equal to the value provided. The new numBeliefsToAdd
+ *  belief points are added to B and rz is updated accordingly.
+ *
  *  @param  pomdp               The POMDP object. B and rz will be modified.
  *  @param  numBeliefsToAdd     The number of belief points to add.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int pomdp_expand_random_cpu(POMDP *pomdp, unsigned int numBeliefsToAdd);
+extern "C" int pomdp_expand_random(POMDP *pomdp, unsigned int numBeliefsToAdd);
 
 /**
- *  Expand the set of beliefs by selecting the most distinct successor belief possible for each belief
- *  in the current set B (e.g., PBVI's original expansion). The new r belief points are added to B and
+ *  Expand the set of beliefs following random *unique* trajectories (e.g., Perseus' expansion).
+ *
+ *  This randomly selects points from B, then randomly expands these points a random number of times.
+ *  The process is repeated a number of times equal to the value provided. The new numBeliefsToAdd
+ *  belief points are added to B and rz is updated accordingly.
+ *
+ *  @param  pomdp               The POMDP object. B and rz will be modified.
+ *  @param  numBeliefsToAdd     The number of belief points to add.
+ *  @param  maxTrials           The maximum number of trials to perform while trying to find unique beliefs.
+ *  @return Returns zero upon success, non-zero otherwise.
+ */
+extern "C" int pomdp_expand_random_unique(POMDP *pomdp, unsigned int numBeliefsToAdd, unsigned int maxTrials);
+
+/**
+ *  Expand the set of beliefs by selecting the most distinct successor belief possible for each belief.
+ *
+ *  This is essentially PBVI's original expansion method. The new r belief points are added to B and
  *  rz is updated accordingly.
+ *
  *  @param  pomdp               The POMDP object. B and rz will be modified.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int pomdp_expand_distinct_beliefs_cpu(POMDP *pomdp);
+extern "C" int pomdp_expand_distinct_beliefs(POMDP *pomdp);
 
 /**
- *  Expand the set of beliefs following the Point-based Error Minimization Algorithm (PEMA)
- *  variation of PBVI. The new single belief point is added to B and rz is updated accordingly.
+ *  Expand the set of beliefs following the Point-based Error Minimization Algorithm (PEMA).
+ *
+ *  This is for a variation of PBVI. The new single belief point is added to B and rz is updated accordingly.
+ *
  *  @param  pomdp               The POMDP object. B and rz will be modified.
  *  @param  Gamma               The alpha-vectors from the solution for the current B (r-n array).
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int pomdp_expand_pema_cpu(POMDP *pomdp, const POMDPAlphaVectors *policy);
+extern "C" int pomdp_expand_pema(POMDP *pomdp, const POMDPAlphaVectors *policy);
 
 };
 
 
-#endif // NOVA_POMDP_EXPAND_CPU_H
+#endif // NOVA_POMDP_EXPAND_H
 

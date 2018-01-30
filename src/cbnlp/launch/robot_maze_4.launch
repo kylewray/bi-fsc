@@ -2,7 +2,7 @@
 <launch>
   <arg name="map_name" default="$(find cbnlp)/maps/maze_3.yaml" />
 
-  <include file="$(find cbnlp)/launch/rviz_nav.launch" />
+  <include file="$(find kobuki_node)/launch/robot_with_tf.launch" />
 
   <node pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_name)" />
 
@@ -11,13 +11,13 @@
   <node pkg="cbnlp" type="cbnlp_pomdp_node" name="cbnlp_pomdp_node" output="screen">
     <param name="update_rate" value="10" />
 
-    <param name="grid_width" value="8" />
-    <param name="grid_height" value="8" />
+    <param name="grid_width" value="7" />
+    <param name="grid_height" value="4" />
 
     <param name="base_probability_of_action_success" value="0.9" />
     <param name="penalty_for_freespace" value="0.05" />
-    <param name="number_of_beliefs_to_add" value="100" />
-    <param name="number_of_belief_expansions" value="2" />
+    <!-- <param name="number_of_beliefs_to_add" value="1000" /> -->
+    <param name="number_of_belief_expansions" value="3" />
 
     <param name="number_of_updates_before_providing_actions" value="64" />
 
@@ -41,7 +41,7 @@
     <remap from="/base_pose_ground_truth" to="/odom" /> <!-- nav_msgs -->
     <remap from="/cmd_vel" to="/mobile_base/commands/velocity" /> <!-- kobuki_msgs -->
     <remap from="/cmd_reset_odom" to="/mobile_base/commands/reset_odometry" /> <!-- kobuki_msgs -->
-    <remap from="/evt_bump" to="/mobile_base/events/bumper" /> <!-- kobuki_msgs -->
+    <!-- <remap from="/mobile_base/events/bumper" to="/evt_bump" /> kobuki_msgs -->
 
     <param name="cbnlp_pomdp_namespace" value="/cbnlp_pomdp_node" />
 
@@ -58,7 +58,7 @@
     <param name="desired_velocity" value="0.2" />
 
     <param name="sub_kobuki_odom" value="/odom" />
-    <param name="sub_kobuki_bump" value="/evt_bump" />
+    <param name="sub_kobuki_bump" value="/mobile_base/events/bumper" />
     <param name="pub_kobuki_vel" value="/cmd_vel" />
     <param name="pub_kobuki_reset_odom" value="/cmd_reset_odom" />
 

@@ -35,49 +35,49 @@ import mdp_value_function as mvf
 import nova_mdp_vi as nmvi
 
 
-class MDPValueIterationCPU(nmvi.NovaMDPValueIterationCPU):
+class MDPVI(nmvi.NovaMDPVI):
     """ The value iteration solver for MDPs.
 
         This class provides a clean python wrapper for simple interactions with this solver.
     """
 
-    def __init__(self, mdpObject, Vinitial=None):
-        """ The constructor for the MDPValueIterationCPU class.
+    def __init__(self, mdpObject, VInitial=None):
+        """ The constructor for the MDPVI class.
 
             Parameters:
                 mdpObject   --  The MDP object on which to run value iteration.
-                Vinitial    --  The initial values for each state. If undefined, then it is
+                VInitial    --  The initial values for each state. If undefined, then it is
                                 zero for gamma = 1.0, and Rmin / (1 - gamma) otherwise.
         """
 
         self.mdp = mdpObject
         self.mdpPtr = ct.POINTER(mdp.MDP)(self.mdp)
 
-        self.Vinitial = Vinitial
-        if Vinitial is None:
+        self.VInitial = VInitial
+        if VInitial is None:
             if self.mdp.gamma < 1.0:
-                Vinitial = np.array([float(self.mdp.Rmin / (1.0 - self.mdp.gamma)) for s in range(self.mdp.n)])
+                VInitial = np.array([float(self.mdp.Rmin / (1.0 - self.mdp.gamma)) for s in range(self.mdp.n)])
             else:
-                Vinitial = np.array([0.0 for s in range(self.mdp.n)])
+                VInitial = np.array([0.0 for s in range(self.mdp.n)])
 
             array_type_n_float = ct.c_float * self.mdp.n
-            self.Vinitial = array_type_n_float(*Vinitial)
+            self.VInitial = array_type_n_float(*VInitial)
 
         self.currentHorizon = int(0)
         self.V = ct.POINTER(ct.c_float)()
-        self.Vprime = ct.POINTER(ct.c_float)()
+        self.VPrime = ct.POINTER(ct.c_float)()
         self.pi = ct.POINTER(ct.c_uint)()
 
         # Attempt to initialize the algorithm.
-        result = nmvi._nova.mdp_vi_initialize_cpu(self.mdpPtr, self)
+        result = nmvi._nova.mdp_vi_initialize(self.mdpPtr, self)
         if result != 0:
             print("Failed to initialize the value iteration (CPU) algorithm.")
             raise Exception()
 
     def __del__(self):
-        """ The deconstructor for the MDPValueIterationCPU class which automatically frees memory. """
+        """ The deconstructor for the MDPVI class which automatically frees memory. """
 
-        result = nmvi._nova.mdp_vi_uninitialize_cpu(self.mdpPtr, self)
+        result = nmvi._nova.mdp_vi_uninitialize(self.mdpPtr, self)
         if result != 0:
             print("Failed to free the value iteration (CPU) algorithm.")
             raise Exception()
@@ -91,7 +91,7 @@ class MDPValueIterationCPU(nmvi.NovaMDPValueIterationCPU):
 
         policy = mvf.MDPValueFunction()
 
-        result = nmvi._nova.mdp_vi_execute_cpu(self.mdpPtr, self, policy)
+        result = nmvi._nova.mdp_vi_execute(self.mdpPtr, self, policy)
         if result != 0:
             print("Failed to execute the 'nova' library's CPU MDP solver.")
             raise Exception()
@@ -105,7 +105,7 @@ class MDPValueIterationCPU(nmvi.NovaMDPValueIterationCPU):
                 The string of the MDP value iteration.
         """
 
-        result = "Vinitial:\n%s" % (str(np.array([self.Vinitial[i] \
+        result = "VInitial:\n%s" % (str(np.array([self.VInitial[i] \
                     for i in range(self.mdp.n)]))) + "\n\n"
 
         result += "currentHorizon: %i" % (self.currentHorizon) + "\n\n"
@@ -113,7 +113,7 @@ class MDPValueIterationCPU(nmvi.NovaMDPValueIterationCPU):
         result += "V:\n%s" % (str(np.array([self.V[i] \
                     for i in range(self.mdp.n)]))) + "\n\n"
 
-        result += "Vprime:\n%s" % (str(np.array([self.Vprime[i] \
+        result += "VPrime:\n%s" % (str(np.array([self.VPrime[i] \
                     for i in range(self.mdp.n)]))) + "\n\n"
 
         result += "pi:\n%s" % (str(np.array([self.pi[i] \
@@ -122,14 +122,14 @@ class MDPValueIterationCPU(nmvi.NovaMDPValueIterationCPU):
         return result
 
 
-class MDPValueIterationGPU(nmvi.NovaMDPValueIterationGPU):
+class MDPVIGPU(nmvi.NovaMDPVIGPU):
     """ The value iteration solver for MDPs.
 
         This class provides a clean python wrapper for simple interactions with this solver.
     """
 
     def __init__(self, mdpObject, numThreads=1024, Vinitial=None):
-        """ The constructor for the MDPValueIterationGPU class.
+        """ The constructor for the MDPVIGPU class.
 
             Parameters:
                 mdpObject   --  The MDP object on which to run value iteration.
@@ -154,7 +154,7 @@ class MDPValueIterationGPU(nmvi.NovaMDPValueIterationGPU):
         self.currentHorizon = int(0)
         self.numThreads = numThreads
         self.d_V = ct.POINTER(ct.c_float)()
-        self.d_Vprime = ct.POINTER(ct.c_float)()
+        self.d_VPrime = ct.POINTER(ct.c_float)()
         self.d_pi = ct.POINTER(ct.c_uint)()
 
         # Attempt to initialize the algorithm.
@@ -164,7 +164,7 @@ class MDPValueIterationGPU(nmvi.NovaMDPValueIterationGPU):
             raise Exception()
 
     def __del__(self):
-        """ The deconstructor for the MDPValueIterationGPU class which automatically frees memory. """
+        """ The deconstructor for the MDPVIGPU class which automatically frees memory. """
 
         result = nmvi._nova.mdp_vi_uninitialize_gpu(self.mdpPtr, self)
         if result != 0:

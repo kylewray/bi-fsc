@@ -1,7 +1,7 @@
 /**
  *  The MIT License (MIT)
  *
- *  Copyright (c) 2016 Kyle Hollins Wray, University of Massachusetts
+ *  Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -22,8 +22,8 @@
  */
 
 
-#ifndef NOVA_SSP_RTDP_CPU_H
-#define NOVA_SSP_RTDP_CPU_H
+#ifndef NOVA_SSP_FLARES_H
+#define NOVA_SSP_FLARES_H
 
 
 #include <nova/mdp/mdp.h>
@@ -32,82 +32,87 @@
 namespace nova {
 
 /**
- *  The necessary variables to perform value iteration on an RTDP within nova.
+ *  The necessary variables to perform value iteration on an Flares within nova.
  *  @param  VInitial        The initial value function, mapping states (n-array) to floats.
  *  @param  trials          The number of trials to perform.
+ *  @param  t               The depth of the tree to label states as depth-t-solved.
+ *  @param  maxStackSize    The maximum stack size for the depth of trials, etc.
  *  @param  currentTrial    The current trial.
  *  @param  currentHorizon  The current horizon updated after each iteration.
  *  @param  V               The value of the states (n-array).
  *  @param  Vprime          The value of the states (n-array) copy.
  *  @param  pi              The action to take at each state (n-array).
  */
-typedef struct NovaSSPRTDPCPU {
+typedef struct NovaSSPFlares {
     float *VInitial;
     unsigned int trials;
+    unsigned int t;
+    unsigned int maxStackSize;
 
     unsigned int currentTrial;
     unsigned int currentHorizon;
 
     float *V;
     unsigned int *pi;
-} SSPRTDPCPU;
+} SSPFlares;
 
 /**
- *  Step 1/3: The initialization step of RTDP. This sets up the V and pi variables.
- *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, RTDP also
+ *  Execute all steps of Flares for the SSP MDP model specified.
+ *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, Flares also
  *  assumes that the goal can be reached with non-zero probability from all states.
  *  @param  mdp         The MDP object.
- *  @param  rtdp        The SSPRTDPCPU object containing algorithm variables.
- *  @return Returns zero upon success, non-zero otherwise.
- */
-extern "C" int ssp_rtdp_initialize_cpu(const MDP *mdp, SSPRTDPCPU *rtdp);
-
-/**
- *  Step 2/3: Execute RTDP for the SSP MDP model specified.
- *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, RTDP also
- *  assumes that the goal can be reached with non-zero probability from all states.
- *  @param  mdp         The MDP object.
- *  @param  rtdp        The SSPRTDPCPU object containing algorithm variables.
+ *  @param  flares      The SSPFlares object containing algorithm variables.
  *  @param  policy      The resulting value function policy. This will be modified.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int ssp_rtdp_execute_cpu(const MDP *mdp, SSPRTDPCPU *rtdp, MDPValueFunction *policy);
+extern "C" int ssp_flares_execute(const MDP *mdp, SSPFlares *flares, MDPValueFunction *policy);
 
 /**
- *  Step 3/3: The uninitialization step of RTDP. This sets up the V and pi variables.
- *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, RTDP also
- *  assumes that the goal can be reached with non-zero probability from all states.
+ *  Step 1/4: The initialization step of Flares. This sets up the V and pi variables.
+ *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly,
+ *  Flares also assumes that the goal can be reached with non-zero probability from all states.
  *  @param  mdp         The MDP object.
- *  @param  rtdp        The SSPRTDPCPU object containing algorithm variables.
+ *  @param  flares      The SSPFlares object containing algorithm variables.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int ssp_rtdp_uninitialize_cpu(const MDP *mdp, SSPRTDPCPU *rtdp);
+extern "C" int ssp_flares_initialize(const MDP *mdp, SSPFlares *flares);
 
 /**
- *  The update step of RTDP. This performs one complete trial of RTDP.
- *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, RTDP also
+ *  Step 2/4: The update step of Flares. This performs one complete trial of Flares.
+ *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, Flares also
  *  assumes that the goal can be reached with non-zero probability from all states.
  *  @param  mdp         The MDP object.
- *  @param  rtdp        The SSPRTDPCPU object containing algorithm variables.
+ *  @param  flares      The SSPFlares object containing algorithm variables.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int ssp_rtdp_update_cpu(const MDP *mdp, SSPRTDPCPU *rtdp);
+extern "C" int ssp_flares_update(const MDP *mdp, SSPFlares *flares);
 
 /**
- *  The get resultant policy step of RTDP. This retrieves the values of states (V) and
+ *  Step 3/4: The get resultant policy step of Flares. This retrieves the values of states (V) and
  *  the corresponding actions at each state (pi). Unexplored states s will have unchanged
  *  values V(s) and actions pi(s).
  *  Note we assume the rewards R are all positive costs or 0 for goal states.
  *  @param  mdp         The MDP object.
- *  @param  rtdp        The SSPRTDPCPU object containing algorithm variables.
+ *  @param  flares      The SSPFlares object containing algorithm variables.
  *  @param  policy      The resulting value function policy. This will be modified.
  *  @return Returns zero upon success, non-zero otherwise.
  */
-extern "C" int ssp_rtdp_get_policy_cpu(const MDP *mdp, SSPRTDPCPU *rtdp, MDPValueFunction *policy);
+extern "C" int ssp_flares_get_policy(const MDP *mdp, SSPFlares *flares, MDPValueFunction *policy);
+
+/**
+ *  Step 4/4: The uninitialization step of Flares. This sets up the V and pi variables.
+ *  Note we assume the rewards R are all positive costs or 0 for goal states. Importantly, Flares also
+ *  assumes that the goal can be reached with non-zero probability from all states.
+ *  @param  mdp         The MDP object.
+ *  @param  flares      The SSPFlares object containing algorithm variables.
+ *  @return Returns zero upon success, non-zero otherwise.
+ */
+extern "C" int ssp_flares_uninitialize(const MDP *mdp, SSPFlares *flares);
 
 };
 
 
-#endif // NOVA_SSP_RTDP_CPU_H
+#endif // NOVA_SSP_FLARES_H
+
 
 

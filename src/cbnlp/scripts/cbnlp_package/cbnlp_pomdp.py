@@ -30,8 +30,10 @@ thisFilePath = os.path.dirname(os.path.realpath(__file__))
 
 sys.path.append(os.path.join(thisFilePath, "..", "..", "libnova", "python"))
 from nova.pomdp import POMDP
-import nova.pomdp_pbvi as solver
-import nova.pomdp_alpha_vectors as policy
+#import nova.pomdp_pbvi as solver # PBVI Policy
+#import nova.pomdp_alpha_vectors as policy # PBVI Policy
+import nova.pomdp_cbnlp as solver
+import nova.pomdp_stochastic_fsc as policy
 
 import rospy
 
@@ -65,6 +67,11 @@ class CBNLPPOMDP(object):
     def __init__(self):
         """ The constructor for the CBNLPPOMDP class. """
 
+        self.controllerLambda = 0.1
+        self.controllerNumFSCNodes = 20
+        self.controllerAlphaVectors = None
+        self.controllerNode = 0
+
         # The POMDP and other related information. Note: ctypes pointer (policy) is 'False' if null. Otherwise,
         # we can call policy.contents to dereference the pointer.
         self.pomdp = POMDP()
@@ -74,12 +81,13 @@ class CBNLPPOMDP(object):
         self.initialBeliefIsSet = False
         self.goalIsSet = False
         self.algorithmIsInitialized = False
+        self.policyIsSolved = False
 
         self.stateObstaclePercentage = None
 
         self.baseProbabilityOfActionSuccess = rospy.get_param("~base_probability_of_action_success", 0.8)
         self.penaltyForFreespace = rospy.get_param("~penalty_for_freespace", 0.1)
-        #self.numberOfBeliefsToAdd = rospy.get_param("~number_of_beliefs_to_add", 10000)
+        self.numberOfBeliefsToAdd = rospy.get_param("~number_of_beliefs_to_add", 100)
         self.numberOfBeliefExpansions = rospy.get_param("~number_of_belief_expansions", 2)
 
         # Information about the map for use by a path follower once our paths are published.
@@ -93,11 +101,6 @@ class CBNLPPOMDP(object):
         # will, of course, be omitted.
         self.gridWidth = rospy.get_param("~grid_width", 10)
         self.gridHeight = rospy.get_param("~grid_height", 10)
-
-        # There is a pre-determined number of updates before get_action will return something.
-        self.numberOfUpdates = 0
-        self.numberOfUpdatesBeforeProvidingActions = rospy.get_param("~number_of_updates_before_providing_actions",
-                                                                     self.gridWidth * self.gridHeight)
 
         # Store if we performed the initial theta adjustment and the final goal theta adjustment
         self.performedInitialPoseAdjustment = False
@@ -202,10 +205,22 @@ class CBNLPPOMDP(object):
 
         #rospy.loginfo("Info[CBNLPPOMDP.update]: Updating the policy.")
 
-        # This can be NOVA_SUCCESS or NOVA_CONVERGED.
-        result = self.solver.update()
+        # If the policy already exists, then load it. Otherwise, attempt to solve the policy. Save it once it is solved.
+        if not self.policyIsSolved:
+            policyFilename = os.path.join(thisFilePath, "cbnlp.policy")
+            if os.path.exists(policyFilename):
+                rospy.loginfo("Info[CBNLPPOMDP.update]: Policy exists! Load it!")
+                self.policy = policy.POMDPStochasticFSC()
+                self.policy.load(policyFilename)
+            else:
+                rospy.loginfo("Info[CBNLPPOMDP.update]: Solving policy...")
+                self.policy = self.solver.solve()
+                self.policy.save(policyFilename)
+                rospy.loginfo("Info[CBNLPPOMDP.update]: Policy solved!")
 
-        self.numberOfUpdates += 1
+            self.controllerAlphaVectors = np.array([[self.policy.V[(self.policy.k - self.pomdp.r + i) * self.policy.n + s]
+                                                    for s in range(self.policy.n)] for i in range(self.pomdp.r)])
+            self.policyIsSolved = True
 
     def initialize_algorithm(self):
         """ Initialize the POMDP algorithm. """
@@ -218,22 +233,34 @@ class CBNLPPOMDP(object):
             rospy.logwarn("Warn[CBNLPPOMDP.initialize_algorithm]: Initial belief or goal is not set yet.")
             return
 
-        initialGamma = np.array([[float(self.pomdp.Rmin / (1.0 - self.pomdp.gamma)) \
-                                        for s in range(self.pomdp.n)] \
-                                    for i in range(self.pomdp.r)])
+        self.controllerNode = 0
 
-        array_type_rn_float = ct.c_float * (self.pomdp.r * self.pomdp.n)
-        initialGamma = array_type_rn_float(*initialGamma.flatten())
+        self.policyIsSolved = False
+
+        # PBVI Policy...
+        #initialGamma = np.array([[float(self.pomdp.Rmin / (1.0 - self.pomdp.gamma)) \
+        #                                for s in range(self.pomdp.n)] \
+        #                            for i in range(self.pomdp.r)])
+        #array_type_rn_float = ct.c_float * (self.pomdp.r * self.pomdp.n)
+        #initialGamma = array_type_rn_float(*initialGamma.flatten())
+        #rospy.loginfo("Info[CBNLPPOMDP.initialize_algorithm]: Initializing the algorithm.")
+        #try:
+        #    self.solver = solver.POMDPPBVI(self.pomdp, initialGamma) # PBVI Policy
+        #except:
+        #    rospy.logerr("Error[CBNLPPOMDP.initialize_algorithm]: Failed to initialize algorithm.")
+        #    return
 
         rospy.loginfo("Info[CBNLPPOMDP.initialize_algorithm]: Initializing the algorithm.")
 
         try:
-            self.solver = solver.POMDPPBVICPU(self.pomdp, initialGamma)
+            cmd = "python3 "
+            cmd += os.path.join(thisFilePath, "..", "..", "libnova", "python", "neos_snopt.py") + " "
+            cmd += os.path.join(thisFilePath, "nova_cbnlp_ampl.mod") + " "
+            cmd += os.path.join(thisFilePath, "nova_cbnlp_ampl.dat")
+            self.solver = solver.POMDPCBNLP(self.pomdp, path=thisFilePath, command=cmd, k=self.controllerNumFSCNodes, r=self.pomdp.r, lmbd=self.controllerLambda)
         except:
             rospy.logerr("Error[CBNLPPOMDP.initialize_algorithm]: Failed to initialize algorithm.")
             return
-
-        self.numberOfUpdates = 0
 
         self.algorithmIsInitialized = True
 
@@ -430,7 +457,8 @@ class CBNLPPOMDP(object):
         self.pomdp.states = list(it.product(range(self.gridWidth), range(self.gridHeight)))
         self.pomdp.n = len(self.pomdp.states)
 
-        self.pomdp.actions = list(it.product([-1, 0, 1], [-1, 0, 1]))
+        self.pomdp.actions = list(it.product([-1, 0, 1], [-1, 0, 1]))  # All 8 directions + stop
+        #self.pomdp.actions = [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]
         #self.pomdp.actions.remove((0, 0))
         self.pomdp.m = len(self.pomdp.actions)
 
@@ -643,7 +671,8 @@ class CBNLPPOMDP(object):
 
         self.performedInitialPoseAdjustment = False
 
-        # Random Version: The seed belief is simply a collapsed belief on this initial pose.
+        ## ---------------------------------------
+        ## Random Version: The seed belief is simply a collapsed belief on this initial pose.
         #Z = [[sInitialBelief]]
         #B = [[1.0]]
 
@@ -656,8 +685,10 @@ class CBNLPPOMDP(object):
         #self.pomdp.Z = array_type_rrz_int(*np.array(Z).flatten())
         #self.pomdp.B = array_type_rrz_float(*np.array(B).flatten())
 
-        #self.pomdp.expand(method='random', numBeliefsToAdd=self.numberOfBeliefsToAdd)
+        #self.pomdp.expand(method='random_unique', numBeliefsToAdd=self.numberOfBeliefsToAdd, maxTrials=100)
+        ## ---------------------------------------
 
+        # ---------------------------------------
         # Intelligent Version: Assign the belief to be intelligently spread over each state.
         Z = [[s] for s in range(self.pomdp.n)]
         B = [[1.0] for s in range(self.pomdp.n)]
@@ -676,6 +707,7 @@ class CBNLPPOMDP(object):
         #    self.pomdp.expand(method='distinct_beliefs')
 
         #rospy.loginfo("Info[CBNLPPOMDP.sub_map_pose_estimate]: Completed expansions.")
+        # ---------------------------------------
 
         self.uninitialize_algorithm()
         self.initialize_algorithm()
@@ -797,21 +829,22 @@ class CBNLPPOMDP(object):
             rospy.logerr("Error[CBNLPPOMDP.srv_get_action]: POMDP or belief are undefined.")
             return GetActionResponse(False, 0.0, 0.0, 0.0)
 
-        # Do nothing until the number of updates is sufficient.
-        if self.numberOfUpdates < self.numberOfUpdatesBeforeProvidingActions:
+        # Do nothing if the policy is not yet solved or defined.
+        if not self.policyIsSolved or self.policy is None:
             return GetActionResponse(False, 0.0, 0.0, 0.0)
 
-        # Reset the policy so we can get the newest one.
-        self.policy = None
+        ## Reset the policy so we can get the newest one.
+        #self.policy = None
+        #try:
+        #    self.policy = self.solver.get_policy()
+        #except:
+        #    rospy.logerr("Error[CBNLPPOMDP.srv_get_action]: Could not get policy.")
+        #    return GetActionResponse(False, 0.0, 0.0, 0.0)
 
-        try:
-            self.policy = self.solver.get_policy()
-        except:
-            rospy.logerr("Error[CBNLPPOMDP.srv_get_action]: Could not get policy.")
-            return GetActionResponse(False, 0.0, 0.0, 0.0)
+        #value, actionIndex = self.policy.value_and_action(self.belief) # PBVI Policy
+        #actionIndex = int(actionIndex) # PBVI Policy
 
-        value, actionIndex = self.policy.value_and_action(self.belief)
-        actionIndex = int(actionIndex)
+        actionIndex = self.policy.random_action(self.controllerNode)
 
         # The relative goal is simply the relative location based on the "grid-ize-ation"
         # and resolution of the map. The goal theta is a bit harder to compute (estimate).
@@ -877,8 +910,8 @@ class CBNLPPOMDP(object):
             rospy.logerr("Error[CBNLPPOMDP.srv_update_belief]: POMDP or belief are undefined.")
             return UpdateBeliefResponse(False)
 
-        # Do nothing until the number of updates is sufficient.
-        if self.numberOfUpdates < self.numberOfUpdatesBeforeProvidingActions:
+        # Do nothing if the policy is not yet solved or defined.
+        if not self.policyIsSolved or self.policy is None:
             return UpdateBeliefResponse(False)
 
         # Determine which action corresponds to this goal. Do the same for the observation.
@@ -905,6 +938,15 @@ class CBNLPPOMDP(object):
         except:
             rospy.logerr("Error[CBNLPPOMDP.srv_update_belief]: Failed to update belief.")
             return UpdateBeliefResponse(False)
+
+        tmpControllerNode = self.controllerNode
+        isCurrentAnFSCNode = (self.controllerNode < self.policy.k - self.pomdp.r)
+        if isCurrentAnFSCNode and random.random() < self.controllerLambda:
+            self.controllerNode = self.policy.k - self.pomdp.r + (self.controllerAlphaVectors * np.asmatrix(self.belief).transpose()).argmax()
+            print("Node %i   Action %i   Observation %i   Successor Node %i (PBVI argmax)" % (tmpControllerNode, actionIndex, observationIndex, self.controllerNode))
+        else:
+            self.controllerNode = self.policy.random_successor(self.controllerNode, actionIndex, observationIndex)
+            print("Node %i   Action %i   Observation %i   Successor Node %i (NLP stochastic)" % (tmpControllerNode, actionIndex, observationIndex, self.controllerNode))
 
         # Finally, visualize the belief if desired.
         self.visualize_belief()

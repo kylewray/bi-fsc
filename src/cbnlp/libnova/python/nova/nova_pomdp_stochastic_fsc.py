@@ -1,6 +1,6 @@
 """ The MIT License (MIT)
 
-    Copyright (c) 2016 Kyle Hollins Wray, University of Massachusetts
+    Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
@@ -23,12 +23,7 @@
 import ctypes as ct
 import platform
 import os.path
-import sys
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__))))
-
-import mdp
-import mdp_value_function as mvf
 
 # Check if we need to create the nova variable. If so, import the correct library
 # file depending on the platform.
@@ -44,32 +39,33 @@ else:
                     "..", "..", "lib", "libnova.so"))
 
 
-class NovaSSPLAOStar(ct.Structure):
-    """ The C struct SSPLAOStar object. """
+class NovaPOMDPStochasticFSC(ct.Structure):
+    """ The C struct POMDPStochasticFSC object. """
 
-    _fields_ = [("VInitial", ct.POINTER(ct.c_float)),
-                ("maxStackSize", ct.c_uint),
-                ("currentHorizon", ct.c_uint),
+    _fields_ = [("k", ct.c_uint),
+                ("n", ct.c_uint),
+                ("m", ct.c_uint),
+                ("z", ct.c_uint),
+                ("psi", ct.POINTER(ct.c_float)),
+                ("eta", ct.POINTER(ct.c_float)),
                 ("V", ct.POINTER(ct.c_float)),
-                ("pi", ct.POINTER(ct.c_uint)),
                 ]
 
 
-_nova.ssp_lao_star_execute.argtypes = (ct.POINTER(mdp.MDP),
-                                       ct.POINTER(NovaSSPLAOStar),
-                                       ct.POINTER(mvf.MDPValueFunction))
-
-_nova.ssp_lao_star_initialize.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPLAOStar))
-
-_nova.ssp_lao_star_update.argtypes = (ct.POINTER(mdp.MDP),
-                                      ct.POINTER(NovaSSPLAOStar))
-
-_nova.ssp_lao_star_get_policy.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPLAOStar),
-                                          ct.POINTER(mvf.MDPValueFunction))
-
-_nova.ssp_lao_star_uninitialize.argtypes = (ct.POINTER(mdp.MDP),
-                                            ct.POINTER(NovaSSPLAOStar))
+# Functions from 'pomdp_stochastic_fsc.h'.
+_nova.pomdp_stochastic_fsc_initialize.argtypes = (ct.POINTER(NovaPOMDPStochasticFSC),
+                                                  ct.c_uint,        # k
+                                                  ct.c_uint,        # n
+                                                  ct.c_uint,        # m
+                                                  ct.c_uint)        # z
+_nova.pomdp_stochastic_fsc_random_action.argtypes = (ct.POINTER(NovaPOMDPStochasticFSC),
+                                                     ct.c_uint,                 # x
+                                                     ct.POINTER(ct.c_uint))     # a
+_nova.pomdp_stochastic_fsc_random_successor.argtypes = (ct.POINTER(NovaPOMDPStochasticFSC),
+                                                        ct.c_uint,              # x
+                                                        ct.c_uint,              # a
+                                                        ct.c_uint,              # o
+                                                        ct.POINTER(ct.c_uint))  # xp
+_nova.pomdp_stochastic_fsc_uninitialize.argtypes = tuple([ct.POINTER(NovaPOMDPStochasticFSC)])
 
 

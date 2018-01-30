@@ -1,6 +1,6 @@
 """ The MIT License (MIT)
 
-    Copyright (c) 2016 Kyle Hollins Wray, University of Massachusetts
+    Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
@@ -27,8 +27,8 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__))))
 
-import mdp
-import mdp_value_function as mvf
+import pomdp
+import pomdp_stochastic_fsc as psfsc
 
 # Check if we need to create the nova variable. If so, import the correct library
 # file depending on the platform.
@@ -44,34 +44,36 @@ else:
                     "..", "..", "lib", "libnova.so"))
 
 
-class NovaSSPRTDPCPU(ct.Structure):
-    """ The C struct SSPRTDPCPU object. """
+class NovaPOMDPCBNLP(ct.Structure):
+    """ The C struct NovaPOMDPCBNLP object. """
 
-    _fields_ = [("VInitial", ct.POINTER(ct.c_float)),
-                ("trials", ct.c_uint),
-                ("currentTrial", ct.c_uint),
-                ("currentHorizon", ct.c_uint),
+    _fields_ = [("path", ct.POINTER(ct.c_char)),
+                ("command", ct.POINTER(ct.c_char)),
+                ("k", ct.c_uint),
+                ("r", ct.c_uint),
+                ("B", ct.POINTER(ct.c_float)),
+                ("lmbd", ct.c_float),
+                ("psi", ct.POINTER(ct.c_float)),
+                ("eta", ct.POINTER(ct.c_float)),
                 ("V", ct.POINTER(ct.c_float)),
-                ("pi", ct.POINTER(ct.c_uint)),
                 ]
 
 
-_nova.ssp_rtdp_initialize_cpu.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPRTDPCPU))
+_nova.pomdp_cbnlp_execute.argtypes = (ct.POINTER(pomdp.POMDP),
+                                      ct.POINTER(NovaPOMDPCBNLP),
+                                      ct.POINTER(psfsc.POMDPStochasticFSC))
 
-_nova.ssp_rtdp_execute_cpu.argtypes = (ct.POINTER(mdp.MDP),
-                                       ct.POINTER(NovaSSPRTDPCPU),
-                                       ct.POINTER(mvf.MDPValueFunction))
+_nova.pomdp_cbnlp_initialize.argtypes = (ct.POINTER(pomdp.POMDP),
+                                         ct.POINTER(NovaPOMDPCBNLP))
 
-_nova.ssp_rtdp_uninitialize_cpu.argtypes = (ct.POINTER(mdp.MDP),
-                                            ct.POINTER(NovaSSPRTDPCPU))
+_nova.pomdp_cbnlp_update.argtypes = (ct.POINTER(pomdp.POMDP),
+                                     ct.POINTER(NovaPOMDPCBNLP))
 
-_nova.ssp_rtdp_update_cpu.argtypes = (ct.POINTER(mdp.MDP),
-                                      ct.POINTER(NovaSSPRTDPCPU))
+_nova.pomdp_cbnlp_get_policy.argtypes = (ct.POINTER(pomdp.POMDP),
+                                         ct.POINTER(NovaPOMDPCBNLP),
+                                         ct.POINTER(psfsc.POMDPStochasticFSC))
 
-_nova.ssp_rtdp_get_policy_cpu.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPRTDPCPU),
-                                          ct.POINTER(mvf.MDPValueFunction))
-
+_nova.pomdp_cbnlp_uninitialize.argtypes = (ct.POINTER(pomdp.POMDP),
+                                           ct.POINTER(NovaPOMDPCBNLP))
 
 

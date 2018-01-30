@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <arg name="map_name" default="$(find cbnlp)/maps/maze_3.yaml" />
+  <arg name="map_name" default="$(find cbnlp)/maps/maze_4.yaml" />
 
   <include file="$(find cbnlp)/launch/rviz_nav.launch" />
 
@@ -11,8 +11,8 @@
   <node pkg="cbnlp" type="cbnlp_pomdp_node" name="cbnlp_pomdp_node" output="screen">
     <param name="update_rate" value="10" />
 
-    <param name="grid_width" value="8" />
-    <param name="grid_height" value="8" />
+    <param name="grid_width" value="7" />
+    <param name="grid_height" value="5" />
 
     <param name="base_probability_of_action_success" value="0.9" />
     <param name="penalty_for_freespace" value="0.05" />

@@ -1,6 +1,6 @@
 """ The MIT License (MIT)
 
-    Copyright (c) 2016 Kyle Hollins Wray, University of Massachusetts
+    Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
@@ -44,32 +44,35 @@ else:
                     "..", "..", "lib", "libnova.so"))
 
 
-class NovaSSPLAOStar(ct.Structure):
-    """ The C struct SSPLAOStar object. """
+class NovaSSPLRTDP(ct.Structure):
+    """ The C struct SSPLRTDP object. """
 
     _fields_ = [("VInitial", ct.POINTER(ct.c_float)),
+                ("trials", ct.c_uint),
                 ("maxStackSize", ct.c_uint),
+                ("currentTrial", ct.c_uint),
                 ("currentHorizon", ct.c_uint),
                 ("V", ct.POINTER(ct.c_float)),
                 ("pi", ct.POINTER(ct.c_uint)),
                 ]
 
 
-_nova.ssp_lao_star_execute.argtypes = (ct.POINTER(mdp.MDP),
-                                       ct.POINTER(NovaSSPLAOStar),
+_nova.ssp_lrtdp_execute.argtypes = (ct.POINTER(mdp.MDP),
+                                    ct.POINTER(NovaSSPLRTDP),
+                                    ct.POINTER(mvf.MDPValueFunction))
+
+_nova.ssp_lrtdp_initialize.argtypes = (ct.POINTER(mdp.MDP),
+                                       ct.POINTER(NovaSSPLRTDP))
+
+_nova.ssp_lrtdp_update.argtypes = (ct.POINTER(mdp.MDP),
+                                   ct.POINTER(NovaSSPLRTDP))
+
+_nova.ssp_lrtdp_get_policy.argtypes = (ct.POINTER(mdp.MDP),
+                                       ct.POINTER(NovaSSPLRTDP),
                                        ct.POINTER(mvf.MDPValueFunction))
 
-_nova.ssp_lao_star_initialize.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPLAOStar))
+_nova.ssp_lrtdp_uninitialize.argtypes = (ct.POINTER(mdp.MDP),
+                                         ct.POINTER(NovaSSPLRTDP))
 
-_nova.ssp_lao_star_update.argtypes = (ct.POINTER(mdp.MDP),
-                                      ct.POINTER(NovaSSPLAOStar))
-
-_nova.ssp_lao_star_get_policy.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaSSPLAOStar),
-                                          ct.POINTER(mvf.MDPValueFunction))
-
-_nova.ssp_lao_star_uninitialize.argtypes = (ct.POINTER(mdp.MDP),
-                                            ct.POINTER(NovaSSPLAOStar))
 
 

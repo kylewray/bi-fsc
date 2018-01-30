@@ -1,6 +1,6 @@
 """ The MIT License (MIT)
 
-    Copyright (c) 2016 Kyle Hollins Wray, University of Massachusetts
+    Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
@@ -44,61 +44,36 @@ else:
                     "..", "..", "lib", "libnova.so"))
 
 
-class NovaMDPVI(ct.Structure):
-    """ The C struct MDPVI object. """
+class NovaSSPFlares(ct.Structure):
+    """ The C struct SSPFlares object. """
 
-    _fields_ = [("Vinitial", ct.POINTER(ct.c_float)),
+    _fields_ = [("VInitial", ct.POINTER(ct.c_float)),
+                ("trials", ct.c_uint),
+                ("t", ct.c_uint),
+                ("maxStackSize", ct.c_uint),
+                ("currentTrial", ct.c_uint),
                 ("currentHorizon", ct.c_uint),
                 ("V", ct.POINTER(ct.c_float)),
-                ("Vprime", ct.POINTER(ct.c_float)),
                 ("pi", ct.POINTER(ct.c_uint)),
                 ]
 
 
-_nova.mdp_vi_execute.argtypes = (ct.POINTER(mdp.MDP),
-                                 ct.POINTER(NovaMDPVI),
-                                 ct.POINTER(mvf.MDPValueFunction))
-
-_nova.mdp_vi_initialize.argtypes = (ct.POINTER(mdp.MDP),
-                                    ct.POINTER(NovaMDPVI))
-
-_nova.mdp_vi_update.argtypes = (ct.POINTER(mdp.MDP),
-                                ct.POINTER(NovaMDPVI))
-
-_nova.mdp_vi_get_policy.argtypes = (ct.POINTER(mdp.MDP),
-                                    ct.POINTER(NovaMDPVI),
-                                    ct.POINTER(mvf.MDPValueFunction))
-
-_nova.mdp_vi_uninitialize.argtypes = (ct.POINTER(mdp.MDP),
-                                      ct.POINTER(NovaMDPVI))
-
-
-class NovaMDPVIGPU(ct.Structure):
-    """ The C struct MDPVIGPU object. """
-
-    _fields_ = [("Vinitial", ct.POINTER(ct.c_float)),
-                ("numThreads", ct.c_uint),
-                ("currentHorizon", ct.c_uint),
-                ("d_V", ct.POINTER(ct.c_float)),
-                ("d_Vprime", ct.POINTER(ct.c_float)),
-                ("d_pi", ct.POINTER(ct.c_uint)),
-                ]
-
-
-_nova.mdp_vi_execute_gpu.argtypes = (ct.POINTER(mdp.MDP),
-                                     ct.POINTER(NovaMDPVIGPU),
+_nova.ssp_flares_execute.argtypes = (ct.POINTER(mdp.MDP),
+                                     ct.POINTER(NovaSSPFlares),
                                      ct.POINTER(mvf.MDPValueFunction))
 
-_nova.mdp_vi_initialize_gpu.argtypes = (ct.POINTER(mdp.MDP),
-                                        ct.POINTER(NovaMDPVIGPU))
+_nova.ssp_flares_initialize.argtypes = (ct.POINTER(mdp.MDP),
+                                        ct.POINTER(NovaSSPFlares))
 
-_nova.mdp_vi_update_gpu.argtypes = (ct.POINTER(mdp.MDP),
-                                    ct.POINTER(NovaMDPVIGPU))
+_nova.ssp_flares_update.argtypes = (ct.POINTER(mdp.MDP),
+                                    ct.POINTER(NovaSSPFlares))
 
-_nova.mdp_vi_get_policy_gpu.argtypes = (ct.POINTER(mdp.MDP),
-                                        ct.POINTER(NovaMDPVIGPU),
+_nova.ssp_flares_get_policy.argtypes = (ct.POINTER(mdp.MDP),
+                                        ct.POINTER(NovaSSPFlares),
                                         ct.POINTER(mvf.MDPValueFunction))
 
-_nova.mdp_vi_uninitialize_gpu.argtypes = (ct.POINTER(mdp.MDP),
-                                          ct.POINTER(NovaMDPVIGPU))
+_nova.ssp_flares_uninitialize.argtypes = (ct.POINTER(mdp.MDP),
+                                          ct.POINTER(NovaSSPFlares))
+
+
 

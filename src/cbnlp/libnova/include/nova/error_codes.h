@@ -1,7 +1,7 @@
 /**
  *  The MIT License (MIT)
  *
- *  Copyright (c) 2015 Kyle Hollins Wray, University of Massachusetts
+ *  Copyright (c) 2017 Kyle Hollins Wray, University of Massachusetts
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -28,7 +28,7 @@
 
 namespace nova {
 
-// Successes
+// Successes.
 #define NOVA_SUCCESS                                0
 
 // Critical errors due to POMDP model, the CPU, or the GPU.
@@ -46,6 +46,11 @@ namespace nova {
 #define NOVA_WARNING_INVALID_BELIEF                 10
 #define NOVA_ERROR_OUT_OF_MEMORY                    11
 #define NOVA_ERROR_POLICY_CREATION                  12
+#define NOVA_WARNING_APPROXIMATE_SOLUTION           13
+#define NOVA_ERROR_EMPTY_CONTAINER                  14
+#define NOVA_ERROR_FAILED_TO_OPEN_FILE              15
+#define NOVA_ERROR_EXECUTING_COMMAND                16
+#define NOVA_ERROR_EXPLORING_BELIEFS                17
 
 };
 

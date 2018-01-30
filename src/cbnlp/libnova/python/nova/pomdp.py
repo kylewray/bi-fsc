@@ -26,6 +26,7 @@ import sys
 import csv
 import numpy as np
 import time
+import random
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__))))
 import nova_pomdp as npm
@@ -83,6 +84,42 @@ class POMDP(npm.NovaPOMDP):
         self.uninitialize_gpu()
         self.uninitialize()
 
+    def __str__(self):
+        """ Return the string of the POMDP values akin to the raw file format.
+
+            Returns:
+                The string of the MOPOMDP in a similar format as the raw file format.
+        """
+
+        result = "n:       " + str(self.n) + "\n"
+        result += "ns:      " + str(self.ns) + "\n"
+        result += "m:       " + str(self.m) + "\n"
+        result += "z:       " + str(self.z) + "\n"
+        result += "r:       " + str(self.r) + "\n"
+        result += "rz:      " + str(self.rz) + "\n"
+        result += "horizon: " + str(self.horizon) + "\n"
+        result += "gamma:   " + str(self.gamma) + "\n"
+
+        result += "S(s, a, s'):\n%s" % (str(np.array([self.S[i] \
+                    for i in range(self.n * self.m * self.ns)]).reshape((self.n, self.m, self.ns)))) + "\n\n"
+
+        result += "T(s, a, s'):\n%s" % (str(np.array([self.T[i] \
+                    for i in range(self.n * self.m * self.ns)]).reshape((self.n, self.m, self.ns)))) + "\n\n"
+
+        result += "O(a, s', o):\n%s" % (str(np.array([self.O[i] \
+                    for i in range(self.m * self.n * self.z)]).reshape((self.m, self.n, self.z)))) + "\n\n"
+
+        result += "R(s, a):\n%s" % (str(np.array([self.R[i] \
+                    for i in range(self.n * self.m)]).reshape((self.n, self.m)))) + "\n\n"
+
+        result += "Z(i, s):\n%s" % (str(np.array([self.Z[i] \
+                    for i in range(self.r * self.rz)]).reshape((self.r, self.rz)))) + "\n\n"
+
+        result += "B(i, s):\n%s" % (str(np.array([self.B[i] \
+                    for i in range(self.r * self.rz)]).reshape((self.r, self.rz)))) + "\n\n"
+
+        return result
+
     def initialize(self, n, ns, m, z, r, rz, gamma, horizon):
         """ Initialize the POMDP's internal arrays, allocating memory.
 
@@ -100,7 +137,7 @@ class POMDP(npm.NovaPOMDP):
         if self.cpuIsInitialized:
             return
 
-        result = npm._nova.pomdp_initialize_cpu(self, n, ns, m, z, r, rz, gamma, horizon)
+        result = npm._nova.pomdp_initialize(self, n, ns, m, z, r, rz, gamma, horizon)
         if result != 0:
             print("Failed to initialize the POMDP.")
             raise Exception()
@@ -113,7 +150,7 @@ class POMDP(npm.NovaPOMDP):
         if not self.cpuIsInitialized:
             return
 
-        result = npm._nova.pomdp_uninitialize_cpu(self)
+        result = npm._nova.pomdp_uninitialize(self)
         if result != 0:
             print("Failed to uninitialize the POMDP.")
             raise Exception()
@@ -199,34 +236,39 @@ class POMDP(npm.NovaPOMDP):
         self.Rmin = fileLoader.Rmin
         self.Rmax = fileLoader.Rmax
 
-    def expand(self, method='random', numBeliefsToAdd=1000, pemaPolicy=None, pemaAlgorithm=None):
+    def expand(self, method='random', numBeliefsToAdd=1000, maxTrials=100, pemaPolicy=None, pemaAlgorithm=None):
         """ Expand the belief points by, for example, PBVI's original method, PEMA, or Perseus' random method.
 
             Parameters:
                 method              --  The method to use for expanding belief points. Default is 'random'.
                                         Methods:
                                             'random'            Random trajectories through the belief space.
+                                            'random_unique'     Random *unique* trajectories through the belief space.
                                             'distinct_beliefs'  Distinct belief point selection.
                                             'pema'              Point-based Error Minimization Algorithm (PEMA).
                 numBeliefsToAdd     --  Optionally define the number of belief points to add. Used by the
-                                        'random'. Default is 1000.
+                                        'random' and 'random_unique'. Default is 1000.
+                maxTrials           --  Optionally define the maximum number of trials while searching for unique beliefs.
+                                        Used by 'random_unique'. Default is 100.
                 pemaPolicy          --  Optionally use any policy object for PEMA. Default is None.
                 pemaAlgorithm       --  Optionally use any POMDP algorithm object for PEMA. Only used if
                                         the pemaPolicy is None. Default is None.
         """
 
-        if method not in ["random", "distinct_beliefs", "pema"]:
+        if method not in ["random", "random_unique", "distinct_beliefs", "pema"]:
             print("Failed to expand. Method '%s' is not defined." % (method))
             raise Exception()
 
         if method == "random":
-            npm._nova.pomdp_expand_random_cpu(self, numBeliefsToAdd)
+            npm._nova.pomdp_expand_random(self, numBeliefsToAdd)
+        elif method == "random_unique":
+            npm._nova.pomdp_expand_random_unique(self, numBeliefsToAdd, maxTrials)
         elif method == "distinct_beliefs":
-            npm._nova.pomdp_expand_distinct_beliefs_cpu(self)
+            npm._nova.pomdp_expand_distinct_beliefs(self)
         elif method == "pema":
             if pemaPolicy is None:
                 pemaPolicy = pemaAlgorithm.solve()
-            npm._nova.pomdp_expand_pema_cpu(self, ct.byref(pemaPolicy))
+            npm._nova.pomdp_expand_pema(self, ct.byref(pemaPolicy))
 
     def sigma_approximate(self, numDesiredNonZeroValues=1):
         """ Perform the sigma-approximation algorithm on the current set of beliefs.
@@ -240,102 +282,12 @@ class POMDP(npm.NovaPOMDP):
 
         sigma = ct.c_float(0.0)
 
-        result = npm._nova.pomdp_sigma_cpu(self, numDesiredNonZeroValues, ct.byref(sigma))
+        result = npm._nova.pomdp_sigma(self, numDesiredNonZeroValues, ct.byref(sigma))
         if result != 0:
             print("Failed to perform sigma-approximation.")
             raise Exception()
 
         return sigma.value
-
-    # TODO: REMOVE THIS. IT HAS BEEN REPLACED BY SEPARATE CLASSES.
-    def solve(self, algorithm='pbvi', process='gpu', numThreads=1024):
-        """ Solve the POMDP using the nova Python wrapper.
-
-            Parameters:
-                algorithm   --  The method to use, either 'pbvi' or 'perseus'. Default is 'pbvi'.
-                process     --  Use the 'cpu' or 'gpu'. If 'gpu' fails, it tries 'cpu'. Default is 'gpu'.
-                numThreads  --  The number of CUDA threads to execute (multiple of 32). Default is 1024.
-
-            Returns:
-                policy  --  The alpha-vectors and associated actions, one for each belief point.
-                timing  --  A pair (wall-time, cpu-time) for solver execution time, not including (un)initialization.
-        """
-
-        # Create Gamma and pi, assigning them their respective initial values.
-        initialGamma = np.array([[0.0 for s in range(self.n)] for b in range(self.r)])
-        if self.gamma < 1.0:
-            initialGamma = np.array([[float(self.Rmin / (1.0 - self.gamma)) for s in range(self.n)] \
-                        for i in range(self.r)])
-        initialGamma = initialGamma.flatten()
-
-        # Create a function to convert a flattened numpy arrays to a C array, then convert initialGamma.
-        array_type_rn_float = ct.c_float * (self.r * self.n)
-        initialGamma = array_type_rn_float(*initialGamma)
-
-        policy = ct.POINTER(pav.POMDPAlphaVectors)()
-        timing = None
-
-        # If the process is 'gpu', then attempt to solve it. If an error arises, then
-        # assign process to 'cpu' and attempt to solve it using that.
-        if process == 'gpu':
-            result = npm._nova.pomdp_initialize_successors_gpu(self)
-            result += npm._nova.pomdp_initialize_state_transitions_gpu(self)
-            result += npm._nova.pomdp_initialize_observation_transitions_gpu(self)
-            result += npm._nova.pomdp_initialize_rewards_gpu(self)
-            result += npm._nova.pomdp_initialize_nonzero_beliefs_gpu(self)
-            result += npm._nova.pomdp_initialize_belief_points_gpu(self)
-            if result != 0:
-                print("Failed to initialize the POMDP variables for the 'nova' library's GPU POMDP solver.")
-                process = 'cpu'
-
-            timing = (time.time(), time.clock())
-
-            if algorithm == 'pbvi':
-                result = npm._nova.pomdp_pbvi_execute_gpu(self, int(numThreads), initialGamma, ct.byref(policy))
-            #elif algorithm == 'perseus':
-            #    result = npm._nova.pomdp_perseus_execute_gpu(self, int(numThreads), initialGamma, ct.byref(policy))
-            else:
-                print("Failed to solve the POMDP with the GPU using 'nova' because algorithm '%s' is undefined." % (algorithm))
-                raise Exception()
-
-            timing = (time.time() - timing[0], time.clock() - timing[1])
-
-            if result != 0:
-                print("Failed to execute the 'nova' library's GPU POMDP solver.")
-                process = 'cpu'
-
-            result = npm._nova.pomdp_uninitialize_successors_gpu(self)
-            result += npm._nova.pomdp_uninitialize_state_transitions_gpu(self)
-            result += npm._nova.pomdp_uninitialize_observation_transitions_gpu(self)
-            result += npm._nova.pomdp_uninitialize_rewards_gpu(self)
-            result += npm._nova.pomdp_uninitialize_nonzero_beliefs_gpu(self)
-            result += npm._nova.pomdp_uninitialize_belief_points_gpu(self)
-            if result != 0:
-                # Note: Failing at uninitialization should not cause the CPU version to be executed.
-                print("Failed to uninitialize the POMDP variables for the 'nova' library's GPU POMDP solver.")
-
-        # If the process is 'cpu', then attempt to solve it.
-        if process == 'cpu':
-            timing = (time.time(), time.clock())
-
-            if algorithm == 'pbvi':
-                result = npm._nova.pomdp_pbvi_execute_cpu(self, initialGamma, ct.byref(policy))
-            elif algorithm == 'perseus':
-                result = npm._nova.pomdp_perseus_execute_cpu(self, initialGamma, ct.byref(policy))
-            else:
-                print("Failed to solve the POMDP with the GPU using 'nova' because algorithm '%s' is undefined." % (algorithm))
-                raise Exception()
-
-            timing = (time.time() - timing[0], time.clock() - timing[1])
-
-            if result != 0:
-                print("Failed to execute the 'nova' library's CPU POMDP solver.")
-                raise Exception()
-
-        # Dereference the pointer (this is how you do it in ctypes).
-        policy = policy.contents
-
-        return policy, timing
 
     def belief_update(self, b, a, o):
         """ Perform a belief update, given belief, action, and observation.
@@ -358,46 +310,69 @@ class POMDP(npm.NovaPOMDP):
         #bp = array_type_n_float(*np.zeros(self.n).flatten())
         bp = ct.POINTER(ct.c_float)()
 
-        result = npm._nova.pomdp_belief_update_cpu(self, b, a, o, ct.byref(bp))
+        result = npm._nova.pomdp_belief_update(self, b, a, o, ct.byref(bp))
         if result != 0:
-            print("Failed to perform a belief update on the CPU.")
+            print("Failed to perform a belief update.")
             raise Exception()
 
         return np.array([bp[s] for s in range(self.n)])
 
-    def __str__(self):
-        """ Return the string of the POMDP values akin to the raw file format.
+    def random_successor(self, s, a):
+        """ Return a random successor from the state transitions.
+
+            Parameters:
+                s   --  The state.
+                a   --  The action.
 
             Returns:
-                The string of the MOPOMDP in a similar format as the raw file format.
+                The random successor state.
         """
 
-        result = "n:       " + str(self.n) + "\n"
-        result += "ns:      " + str(self.ns) + "\n"
-        result += "m:       " + str(self.m) + "\n"
-        result += "z:       " + str(self.z) + "\n"
-        result += "r:       " + str(self.r) + "\n"
-        result += "rz:      " + str(self.rz) + "\n"
-        result += "horizon: " + str(self.horizon) + "\n"
-        result += "gamma:   " + str(self.gamma) + "\n"
+        successor = None
+        current = 0.0
+        target = random.random()
 
-        result += "S(s, a, s'):\n%s" % (str(np.array([self.S[i] \
-                    for i in range(self.n * self.m * self.ns)]).reshape((self.n, self.m, self.ns)))) + "\n\n"
+        for i in range(self.ns):
+            sp = self.S[s * self.m * self.ns + a * self.ns + i]
+            if sp < 0:
+                break
 
-        result += "T(s, a, s'):\n%s" % (str(np.array([self.T[i] \
-                    for i in range(self.n * self.m * self.ns)]).reshape((self.n, self.m, self.ns)))) + "\n\n"
+            current += self.T[s * self.m * self.ns + a * self.ns + i]
+            if current >= target:
+                successor = sp
+                break
 
-        result += "O(a, s', o):\n%s" % (str(np.array([self.O[i] \
-                    for i in range(self.m * self.n * self.z)]).reshape((self.m, self.n, self.z)))) + "\n\n"
+        if successor is None:
+            successor = random.choice([self.S[s * self.m * self.ns + a * self.ns + i]
+                                       for i in range(self.ns)
+                                       if self.S[s * self.m * self.ns + a * self.ns + i] >= 0])
 
-        result += "R(s, a):\n%s" % (str(np.array([self.R[i] \
-                    for i in range(self.n * self.m)]).reshape((self.n, self.m)))) + "\n\n"
+        return successor
 
-        result += "Z(i, s):\n%s" % (str(np.array([self.Z[i] \
-                    for i in range(self.r * self.rz)]).reshape((self.r, self.rz)))) + "\n\n"
+    def random_observation(self, a, sp):
+        """ Return a random observation from the observation function.
 
-        result += "B(i, s):\n%s" % (str(np.array([self.B[i] \
-                    for i in range(self.r * self.rz)]).reshape((self.r, self.rz)))) + "\n\n"
+            Parameters:
+                a   --  The action.
+                sp  --  The successor state.
 
-        return result
+            Returns:
+                The random observation.
+        """
+
+        observation = None
+        current = 0.0
+        target = random.random()
+
+        for o in range(self.z):
+            current += self.O[a * self.n * self.z + sp * self.z + o]
+            if current >= target:
+                observation = o
+                break
+
+        if observation is None:
+            observation = random.choice([o for o in range(self.z)
+                                        if self.O[a * self.n * self.z + sp * self.z + o] > 0.0])
+
+        return observation
 
